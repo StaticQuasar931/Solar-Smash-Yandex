@@ -298,7 +298,7 @@
       });
     })();
 
-    // Unity loader with multi-fallback filename support
+    // Unity boot: your Build folder uses hashed filenames, so we auto-detect them.
     (function(){
       const canvas = document.getElementById("unity-canvas");
       const loadingBar = document.getElementById("unity-loading-bar");
@@ -319,12 +319,44 @@
                                "rgba(0,0,0,.55)";
         div.style.color = (type === "warning") ? "#111" : "#fff";
         warningBanner.appendChild(div);
-        if (type !== "error") setTimeout(() => { try{ warningBanner.removeChild(div); } catch(e){} }, 5000);
+        if (type !== "error") setTimeout(() => { try{ warningBanner.removeChild(div); } catch(e){} }, 6000);
       }
+
+      const buildUrl = "Build";
+
+      const config = {
+        dataUrl: "",
+        frameworkUrl: "",
+        codeUrl: "",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "StaticQuasar931",
+        productName: "Solar Smash (Yandex)",
+        productVersion: "1.0",
+        showBanner: unityShowBanner
+      };
+
+      // These are the 4 hashed filenames shown in your Build folder (prefixes).
+      // We probe common Unity extensions to find the exact ones that exist.
+      const HASHES = [
+        "292ab7b7793ac03ba1256ca5d8bc",
+        "56c058ba7006bd3267487886d9b9",
+        "83e33515b87cc02d093d245f7d07",
+        "991b28b5b569bc43c198a7f63fcf3"
+      ];
+
+      const EXT_CANDIDATES = [
+        ".loader.js",
+        ".framework.js",
+        ".data",
+        ".wasm",
+        ".data.unityweb",
+        ".wasm.unityweb",
+        ".framework.js.unityweb"
+      ];
 
       function abs(u){ return new URL(u, document.baseURI).toString(); }
 
-      async function urlExists(url){
+      async function exists(url){
         try{
           const res = await fetch(url, { method:"GET", cache:"no-store" });
           return res.ok;
@@ -333,71 +365,11 @@
         }
       }
 
-      const buildUrl = "Build";
-
-      const config = {
-        dataUrl: buildUrl + "/Build.data",
-        frameworkUrl: buildUrl + "/Build.framework.js",
-        codeUrl: buildUrl + "/Build.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "StaticQuasar931",
-        productName: "Solar Smash (Yandex)",
-        productVersion: "1.0",
-        showBanner: unityShowBanner
-      };
-
-      // If your Build filenames are NOT "Build.*", this fallback list helps it still boot.
-      // It will try a few common Unity patterns for loader/framework/data/wasm.
-      const candidates = [
-        {
-          loader: buildUrl + "/Build.loader.js",
-          data: buildUrl + "/Build.data",
-          framework: buildUrl + "/Build.framework.js",
-          wasm: buildUrl + "/Build.wasm"
-        },
-        {
-          loader: buildUrl + "/build.loader.js",
-          data: buildUrl + "/build.data",
-          framework: buildUrl + "/build.framework.js",
-          wasm: buildUrl + "/build.wasm"
-        },
-        // Common Unity default naming if you renamed the build (guess set)
-        {
-          loader: buildUrl + "/SolarSmash.loader.js",
-          data: buildUrl + "/SolarSmash.data",
-          framework: buildUrl + "/SolarSmash.framework.js",
-          wasm: buildUrl + "/SolarSmash.wasm"
-        },
-        {
-          loader: buildUrl + "/Solar-Smash.loader.js",
-          data: buildUrl + "/Solar-Smash.data",
-          framework: buildUrl + "/Solar-Smash.framework.js",
-          wasm: buildUrl + "/Solar-Smash.wasm"
+      async function findFirstExisting(paths){
+        for (const p of paths){
+          if (await exists(abs(p))) return p;
         }
-      ];
-
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        const meta = document.createElement("meta");
-        meta.name = "viewport";
-        meta.content = "width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes, viewport-fit=cover";
-        document.head.appendChild(meta);
-      }
-
-      loadingBar.style.display = "block";
-
-      async function pickConfig(){
-        // First, try to find a working loader
-        for (const c of candidates){
-          if (await urlExists(abs(c.loader))){
-            config.dataUrl = c.data;
-            config.frameworkUrl = c.framework;
-            config.codeUrl = c.wasm;
-            return c.loader;
-          }
-        }
-
-        // Last resort: if the directory blocks fetch, try plain injection of the default path
-        return buildUrl + "/Build.loader.js";
+        return null;
       }
 
       function loadScript(src){
@@ -405,17 +377,83 @@
           const s = document.createElement("script");
           s.src = src;
           s.onload = () => resolve();
-          s.onerror = () => reject(new Error("Loading failed for the <script> with source \"" + src + "\"."));
+          s.onerror = () => reject(new Error("Loading failed for the <script> with source \"" + abs(src) + "\"."));
           document.body.appendChild(s);
         });
       }
 
+      async function detectBuildFiles(){
+        const found = {
+          loader: null,
+          framework: null,
+          data: null,
+          wasm: null
+        };
+
+        // Build all probe URLs
+        const probes = [];
+        for (const h of HASHES){
+          for (const ext of EXT_CANDIDATES){
+            probes.push(`${buildUrl}/${h}${ext}`);
+          }
+        }
+
+        // Find loader first (required)
+        found.loader = await findFirstExisting(
+          HASHES.flatMap(h => [
+            `${buildUrl}/${h}.loader.js`
+          ])
+        );
+
+        // Find framework/data/wasm
+        found.framework = await findFirstExisting(
+          HASHES.flatMap(h => [
+            `${buildUrl}/${h}.framework.js`,
+            `${buildUrl}/${h}.framework.js.unityweb`
+          ])
+        );
+
+        found.data = await findFirstExisting(
+          HASHES.flatMap(h => [
+            `${buildUrl}/${h}.data`,
+            `${buildUrl}/${h}.data.unityweb`
+          ])
+        );
+
+        found.wasm = await findFirstExisting(
+          HASHES.flatMap(h => [
+            `${buildUrl}/${h}.wasm`,
+            `${buildUrl}/${h}.wasm.unityweb`
+          ])
+        );
+
+        return found;
+      }
+
       (async function boot(){
         try{
-          const loaderUrl = await pickConfig();
-          await loadScript(loaderUrl);
+          loadingBar.style.display = "block";
 
-          if (typeof createUnityInstance !== "function") {
+          const detected = await detectBuildFiles();
+
+          if (!detected.loader){
+            unityShowBanner("Could not find the Unity loader file in /Build. Your Build files are hashed, and the full names may not match these prefixes.", "error");
+            unityShowBanner("Fix: copy the full filenames from the Build folder (including extensions) and I will hardcode them.", "warning");
+            return;
+          }
+          if (!detected.framework || !detected.data || !detected.wasm){
+            unityShowBanner("Loader was found, but one or more Build files (framework/data/wasm) could not be detected.", "error");
+            unityShowBanner("Fix: copy the full filenames from the Build folder (including extensions) and I will hardcode them.", "warning");
+            return;
+          }
+
+          config.frameworkUrl = detected.framework;
+          config.dataUrl = detected.data;
+          config.codeUrl = detected.wasm;
+
+          await loadScript(detected.loader);
+
+          if (typeof createUnityInstance !== "function"){
             unityShowBanner("Unity loader ran, but createUnityInstance was not found.", "error");
             return;
           }
@@ -425,10 +463,9 @@
           });
 
           loadingBar.style.display = "none";
-        }catch(err){
+        } catch (err) {
           console.error(err);
           unityShowBanner(String(err && err.message ? err.message : err), "error");
-          unityShowBanner("Fix: open your Build folder and copy the exact loader filename (ends with .loader.js). Rename it to Build.loader.js OR add its exact name to the fallback list in this index.", "warning");
         }
       })();
     })();
