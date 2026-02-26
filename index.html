@@ -154,20 +154,17 @@
 </head>
 
 <body>
-  <!-- Static Menu (shows on load, hides 3 minutes when closed, then returns) -->
   <div id="staticMenu" role="region" aria-label="StaticQuasar menu">
     <a href="https://sites.google.com/view/staticquasar931/gm3z" target="_blank" rel="noopener">More Unblocked Games by Static</a>
     <span id="closeStaticMenu" title="Hide temporarily">✕</span>
   </div>
 
-  <!-- Rotating quick link widget (bottom-right). Order: Google Form → Discord → Instagram -->
   <div id="staticSlideMenu" aria-live="polite">
     <a id="staticSlideLink" href="https://sites.google.com/view/staticquasar931/google-form" target="_blank" rel="noopener" aria-label="Open Google Form">
       <img id="staticSlideImg" src="https://cdn.jsdelivr.net/gh/StaticQuasar931/Images@main/GoogleForm.png" alt="StaticQuasar931 Google Form for feedback and requests">
     </a>
   </div>
 
-  <!-- Unity -->
   <div id="unity-container">
     <canvas id="unity-canvas" tabindex="-1"></canvas>
 
@@ -182,10 +179,8 @@
   </div>
 
   <script>
-    // Leave warning
     window.onbeforeunload = () => "Are you sure you want to leave? Your session may be interrupted.";
 
-    // Pre-Unity compatibility shim (safe no-op APIs)
     (function(){
       if (!window.cloudSaves){
         window.cloudSaves = {
@@ -201,7 +196,6 @@
       if (!window.GameReady) window.GameReady = () => true;
     })();
 
-    // Static Menu show/hide with 3 minute return
     (function(){
       const menu = document.getElementById("staticMenu");
       const btn  = document.getElementById("closeStaticMenu");
@@ -224,7 +218,6 @@
       if (btn) btn.onclick = hideFor3m;
     })();
 
-    // Rotator: Google Form → Discord → Instagram
     (function(){
       const wrap = document.getElementById("staticSlideMenu");
       const a    = document.getElementById("staticSlideLink");
@@ -278,7 +271,6 @@
       })();
     })();
 
-    // Keyboard secret toggle: y + u + i to toggle all Visual SEO
     (function(){
       const idsToToggle = ["staticMenu", "staticSlideMenu"];
       let seq = [];
@@ -298,7 +290,6 @@
       });
     })();
 
-    // Unity boot: your Build folder uses hashed filenames, so we auto-detect them.
     (function(){
       const canvas = document.getElementById("unity-canvas");
       const loadingBar = document.getElementById("unity-loading-bar");
@@ -322,12 +313,10 @@
         if (type !== "error") setTimeout(() => { try{ warningBanner.removeChild(div); } catch(e){} }, 6000);
       }
 
-      const buildUrl = "Build";
-
       const config = {
-        dataUrl: "",
-        frameworkUrl: "",
-        codeUrl: "",
+        dataUrl: "Build/991b28b5b569bc43c198a7f63fcf31cf.data.br",
+        frameworkUrl: "Build/56c058ba7006bd3267487886d9b9ff1b.framework.js.br",
+        codeUrl: "Build/83e33515b87cc02d093d245f7d07c5cf.wasm.br",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "StaticQuasar931",
         productName: "Solar Smash (Yandex)",
@@ -335,139 +324,40 @@
         showBanner: unityShowBanner
       };
 
-      // These are the 4 hashed filenames shown in your Build folder (prefixes).
-      // We probe common Unity extensions to find the exact ones that exist.
-      const HASHES = [
-        "292ab7b7793ac03ba1256ca5d8bc",
-        "56c058ba7006bd3267487886d9b9",
-        "83e33515b87cc02d093d245f7d07",
-        "991b28b5b569bc43c198a7f63fcf3"
-      ];
-
-      const EXT_CANDIDATES = [
-        ".loader.js",
-        ".framework.js",
-        ".data",
-        ".wasm",
-        ".data.unityweb",
-        ".wasm.unityweb",
-        ".framework.js.unityweb"
-      ];
-
-      function abs(u){ return new URL(u, document.baseURI).toString(); }
-
-      async function exists(url){
-        try{
-          const res = await fetch(url, { method:"GET", cache:"no-store" });
-          return res.ok;
-        }catch(e){
-          return false;
-        }
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        const meta = document.createElement("meta");
+        meta.name = "viewport";
+        meta.content = "width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes, viewport-fit=cover";
+        document.head.appendChild(meta);
       }
 
-      async function findFirstExisting(paths){
-        for (const p of paths){
-          if (await exists(abs(p))) return p;
-        }
-        return null;
-      }
+      loadingBar.style.display = "block";
 
-      function loadScript(src){
-        return new Promise((resolve, reject) => {
-          const s = document.createElement("script");
-          s.src = src;
-          s.onload = () => resolve();
-          s.onerror = () => reject(new Error("Loading failed for the <script> with source \"" + abs(src) + "\"."));
-          document.body.appendChild(s);
-        });
-      }
+      const loaderUrl = "Build/292ab7b7793ac03ba1256ca5d8bcdeb7.loader.js";
+      const script = document.createElement("script");
+      script.src = loaderUrl;
 
-      async function detectBuildFiles(){
-        const found = {
-          loader: null,
-          framework: null,
-          data: null,
-          wasm: null
-        };
-
-        // Build all probe URLs
-        const probes = [];
-        for (const h of HASHES){
-          for (const ext of EXT_CANDIDATES){
-            probes.push(`${buildUrl}/${h}${ext}`);
-          }
+      script.onload = () => {
+        if (typeof createUnityInstance !== "function") {
+          unityShowBanner("Unity loader ran, but createUnityInstance was not found.", "error");
+          return;
         }
 
-        // Find loader first (required)
-        found.loader = await findFirstExisting(
-          HASHES.flatMap(h => [
-            `${buildUrl}/${h}.loader.js`
-          ])
-        );
-
-        // Find framework/data/wasm
-        found.framework = await findFirstExisting(
-          HASHES.flatMap(h => [
-            `${buildUrl}/${h}.framework.js`,
-            `${buildUrl}/${h}.framework.js.unityweb`
-          ])
-        );
-
-        found.data = await findFirstExisting(
-          HASHES.flatMap(h => [
-            `${buildUrl}/${h}.data`,
-            `${buildUrl}/${h}.data.unityweb`
-          ])
-        );
-
-        found.wasm = await findFirstExisting(
-          HASHES.flatMap(h => [
-            `${buildUrl}/${h}.wasm`,
-            `${buildUrl}/${h}.wasm.unityweb`
-          ])
-        );
-
-        return found;
-      }
-
-      (async function boot(){
-        try{
-          loadingBar.style.display = "block";
-
-          const detected = await detectBuildFiles();
-
-          if (!detected.loader){
-            unityShowBanner("Could not find the Unity loader file in /Build. Your Build files are hashed, and the full names may not match these prefixes.", "error");
-            unityShowBanner("Fix: copy the full filenames from the Build folder (including extensions) and I will hardcode them.", "warning");
-            return;
-          }
-          if (!detected.framework || !detected.data || !detected.wasm){
-            unityShowBanner("Loader was found, but one or more Build files (framework/data/wasm) could not be detected.", "error");
-            unityShowBanner("Fix: copy the full filenames from the Build folder (including extensions) and I will hardcode them.", "warning");
-            return;
-          }
-
-          config.frameworkUrl = detected.framework;
-          config.dataUrl = detected.data;
-          config.codeUrl = detected.wasm;
-
-          await loadScript(detected.loader);
-
-          if (typeof createUnityInstance !== "function"){
-            unityShowBanner("Unity loader ran, but createUnityInstance was not found.", "error");
-            return;
-          }
-
-          await createUnityInstance(canvas, config, (progress) => {
-            progressBarFull.style.width = (100 * progress) + "%";
-          });
-
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = (100 * progress) + "%";
+        }).then(() => {
           loadingBar.style.display = "none";
-        } catch (err) {
-          console.error(err);
-          unityShowBanner(String(err && err.message ? err.message : err), "error");
-        }
-      })();
+        }).catch((message) => {
+          console.error(message);
+          unityShowBanner(message, "error");
+        });
+      };
+
+      script.onerror = () => {
+        unityShowBanner('Loading failed for the <script> with source "' + loaderUrl + '".', "error");
+      };
+
+      document.body.appendChild(script);
     })();
   </script>
 
@@ -477,6 +367,10 @@
       Play Solar Smash (Yandex) unblocked, working at school, school-safe, and Chromebook friendly on StaticQuasar931.
       More unblocked games by Static are at https://sites.google.com/view/staticquasar931/gm3z.
       Keywords: solar smash unblocked, solar smash yandex unblocked, solar smash game unblocked, solar smash g@me unblocked, solar smash working at school, solar smash school, solar smash yandex school, staticquasar931 931 static 931 staticq staticq931.
+    </p>
+    <p>
+      Extra files used by this build include:
+      StreamingAssets/af3724b511f5562c4dbef32d81149a8a_monoscripts_ca1b7bc52ccc3040b0c4ba1ec7e36b7d.bundle
     </p>
   </div>
 </body>
