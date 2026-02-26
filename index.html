@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/gh/StaticQuasar931/Images@main/icon.png" />
 
-  <title>Solar Smash Unblocked - StaticQuasar931</title>
+  <title>Solar Smash (Yandex) Unblocked - StaticQuasar931</title>
 
   <style>
     :root{
@@ -101,7 +101,7 @@
       z-index:50;
       pointer-events:none;
       font-size:13px;
-      opacity:.9;
+      opacity:.92;
       text-shadow:0 2px 10px rgba(0,0,0,.8);
     }
 
@@ -171,7 +171,7 @@
   <div id="unity-container">
     <canvas id="unity-canvas" tabindex="-1"></canvas>
 
-    <div id="unity-loading-bar" aria-label="Loading game">
+    <div id="unity-loading-bar" aria-label="Loading Solar Smash (Yandex)">
       <div id="unity-logo" aria-hidden="true"></div>
       <div id="unity-progress-bar-empty" aria-hidden="true">
         <div id="unity-progress-bar-full"></div>
@@ -298,7 +298,7 @@
       });
     })();
 
-    // Unity loader
+    // Unity loader with multi-fallback filename support
     (function(){
       const canvas = document.getElementById("unity-canvas");
       const loadingBar = document.getElementById("unity-loading-bar");
@@ -319,14 +319,21 @@
                                "rgba(0,0,0,.55)";
         div.style.color = (type === "warning") ? "#111" : "#fff";
         warningBanner.appendChild(div);
+        if (type !== "error") setTimeout(() => { try{ warningBanner.removeChild(div); } catch(e){} }, 5000);
+      }
 
-        if (type !== "error") {
-          setTimeout(() => { try{ warningBanner.removeChild(div); } catch(e){} }, 5000);
+      function abs(u){ return new URL(u, document.baseURI).toString(); }
+
+      async function urlExists(url){
+        try{
+          const res = await fetch(url, { method:"GET", cache:"no-store" });
+          return res.ok;
+        }catch(e){
+          return false;
         }
       }
 
       const buildUrl = "Build";
-      const loaderUrl = buildUrl + "/Build.loader.js";
 
       const config = {
         dataUrl: buildUrl + "/Build.data",
@@ -334,10 +341,40 @@
         codeUrl: buildUrl + "/Build.wasm",
         streamingAssetsUrl: "StreamingAssets",
         companyName: "StaticQuasar931",
-        productName: "Unity WebGL Game",
+        productName: "Solar Smash (Yandex)",
         productVersion: "1.0",
         showBanner: unityShowBanner
       };
+
+      // If your Build filenames are NOT "Build.*", this fallback list helps it still boot.
+      // It will try a few common Unity patterns for loader/framework/data/wasm.
+      const candidates = [
+        {
+          loader: buildUrl + "/Build.loader.js",
+          data: buildUrl + "/Build.data",
+          framework: buildUrl + "/Build.framework.js",
+          wasm: buildUrl + "/Build.wasm"
+        },
+        {
+          loader: buildUrl + "/build.loader.js",
+          data: buildUrl + "/build.data",
+          framework: buildUrl + "/build.framework.js",
+          wasm: buildUrl + "/build.wasm"
+        },
+        // Common Unity default naming if you renamed the build (guess set)
+        {
+          loader: buildUrl + "/SolarSmash.loader.js",
+          data: buildUrl + "/SolarSmash.data",
+          framework: buildUrl + "/SolarSmash.framework.js",
+          wasm: buildUrl + "/SolarSmash.wasm"
+        },
+        {
+          loader: buildUrl + "/Solar-Smash.loader.js",
+          data: buildUrl + "/Solar-Smash.data",
+          framework: buildUrl + "/Solar-Smash.framework.js",
+          wasm: buildUrl + "/Solar-Smash.wasm"
+        }
+      ];
 
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         const meta = document.createElement("meta");
@@ -348,33 +385,61 @@
 
       loadingBar.style.display = "block";
 
-      const script = document.createElement("script");
-      script.src = loaderUrl;
-      script.onload = () => {
-        if (typeof createUnityInstance !== "function") {
-          unityShowBanner("Unity loader failed to initialize.", "error");
-          return;
+      async function pickConfig(){
+        // First, try to find a working loader
+        for (const c of candidates){
+          if (await urlExists(abs(c.loader))){
+            config.dataUrl = c.data;
+            config.frameworkUrl = c.framework;
+            config.codeUrl = c.wasm;
+            return c.loader;
+          }
         }
-        createUnityInstance(canvas, config, (progress) => {
-          progressBarFull.style.width = (100 * progress) + "%";
-        }).then(() => {
-          loadingBar.style.display = "none";
-        }).catch((message) => {
-          console.error(message);
-          unityShowBanner(message, "error");
+
+        // Last resort: if the directory blocks fetch, try plain injection of the default path
+        return buildUrl + "/Build.loader.js";
+      }
+
+      function loadScript(src){
+        return new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = src;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("Loading failed for the <script> with source \"" + src + "\"."));
+          document.body.appendChild(s);
         });
-      };
-      script.onerror = () => unityShowBanner("Could not load the Unity loader script.", "error");
-      document.body.appendChild(script);
+      }
+
+      (async function boot(){
+        try{
+          const loaderUrl = await pickConfig();
+          await loadScript(loaderUrl);
+
+          if (typeof createUnityInstance !== "function") {
+            unityShowBanner("Unity loader ran, but createUnityInstance was not found.", "error");
+            return;
+          }
+
+          await createUnityInstance(canvas, config, (progress) => {
+            progressBarFull.style.width = (100 * progress) + "%";
+          });
+
+          loadingBar.style.display = "none";
+        }catch(err){
+          console.error(err);
+          unityShowBanner(String(err && err.message ? err.message : err), "error");
+          unityShowBanner("Fix: open your Build folder and copy the exact loader filename (ends with .loader.js). Rename it to Build.loader.js OR add its exact name to the fallback list in this index.", "warning");
+        }
+      })();
     })();
   </script>
 
   <div class="seo-hidden" aria-hidden="true">
-    <h1>Unity WebGL game unblocked</h1>
+    <h1>Solar Smash (Yandex) unblocked</h1>
     <p>
-      Play this Unity WebGL game unblocked, school-safe, working at school, and Chromebook friendly on StaticQuasar931.
-      If it loads slowly, keep the tab open while the build downloads.
-      More unblocked games by Static are available at https://sites.google.com/view/staticquasar931/gm3z.
+      Play Solar Smash (Yandex) unblocked, working at school, school-safe, and Chromebook friendly on StaticQuasar931.
+      More unblocked games by Static are at https://sites.google.com/view/staticquasar931/gm3z.
+      Keywords: solar smash unblocked, solar smash yandex unblocked, solar smash game unblocked, solar smash g@me unblocked, solar smash working at school, solar smash school, solar smash yandex school, staticquasar931 931 static 931 staticq staticq931.
     </p>
   </div>
 </body>
